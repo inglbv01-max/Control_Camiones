@@ -5,14 +5,17 @@ async function initApp() {
   await initDB();
 
   // Crear superusuario si no existe
-  const usuarios = await getAllItems('usuarios');
-  const admin = usuarios.find(u => u.username === 'admin');
-  if (!admin) {
-    await addItem('usuarios', { username: 'admin', password: '1234', rol: 'superusuario' });
-    console.log("Superusuario creado: admin / 1234");
-  }
+  const tx = db.transaction('usuarios', 'readwrite');
+  const store = tx.objectStore('usuarios');
+  const req = store.get('admin');
+  req.onsuccess = () => {
+    if (!req.result) {
+      store.add({ username: 'admin', password: '1234', tipo: 'super' });
+      console.log("Superusuario creado: admin / 1234");
+    }
+  };
 }
-await initApp(); // Aseguramos que DB y superusuario estén listos
+initApp();
 
 // --------------------------------------------------------
 // ELEMENTOS DEL DOM
@@ -53,24 +56,28 @@ const btnAddLote = document.getElementById('btnAddLote');
 // LOGIN
 // --------------------------------------------------------
 btnLogin.addEventListener('click', async () => {
-  const username = document.getElementById('username').value.trim();
-  const password = document.getElementById('password').value.trim();
+  const username = document.getElementById('username').value;
+  const password = document.getElementById('password').value;
 
-  const usuarios = await getAllItems('usuarios');
-  const user = usuarios.find(u => u.username === username);
+  const tx = db.transaction('usuarios', 'readonly');
+  const store = tx.objectStore('usuarios');
+  const req = store.get(username);
 
-  if (user && user.password === password) {
-    localStorage.setItem('usuarioActivo', username);
-    document.getElementById('login-screen').style.display = 'none';
-    document.getElementById('app-screen').style.display = 'block';
-    syncStatus.textContent = '';
-    await cargarSelects();
-    await cargarViajes();
-    await cargarCamiones();
-    await cargarUbicacionesLotes();
-  } else {
-    document.getElementById('login-status').textContent = 'Usuario o contraseña incorrectos';
-  }
+  req.onsuccess = () => {
+    const user = req.result;
+    if (user && user.password === password) {
+      localStorage.setItem('usuarioActivo', username);
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('app-screen').style.display = 'block';
+      syncStatus.textContent = '';
+      cargarSelects();
+      cargarViajes();
+      cargarCamiones();
+      cargarUbicacionesLotes();
+    } else {
+      document.getElementById('login-status').textContent = 'Usuario o contraseña incorrectos';
+    }
+  };
 });
 
 // --------------------------------------------------------
@@ -136,9 +143,7 @@ async function cargarViajes() {
       <td>${v.salida}</td>
       <td>${v.llegada}</td>
       <td>${v.obs}</td>
-      <td>
-        <button class="danger" onclick="deleteItem('viajes', ${v.id}).then(cargarViajes)">Eliminar</button>
-      </td>`;
+      <td><button class="danger" onclick="deleteItem('viajes', ${v.id}).then(cargarViajes)">Eliminar</button></td>`;
     tbodyViajes.appendChild(tr);
   });
 }
@@ -151,8 +156,8 @@ btnAddCamion.addEventListener('click', async () => {
   await addItem('camiones', { nombre: newCamion.value, placa: newPlaca.value });
   newCamion.value = '';
   newPlaca.value = '';
-  await cargarCamiones();
-  await cargarSelects();
+  cargarCamiones();
+  cargarSelects();
 });
 
 async function cargarCamiones() {
@@ -161,31 +166,30 @@ async function cargarCamiones() {
   camionSel.innerHTML = '<option value="">Seleccione</option>';
   camiones.forEach(c => {
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${c.nombre}</td><td>${c.placa}</td><td>
-      <button class="danger" onclick="deleteItem('camiones', ${c.id}).then(() => { cargarCamiones(); cargarSelects(); })">Eliminar</button>
-    </td>`;
+    tr.innerHTML = `<td>${c.nombre}</td><td>${c.placa}</td>
+      <td><button class="danger" onclick="deleteItem('camiones', ${c.id}).then(() => { cargarCamiones(); cargarSelects(); })">Eliminar</button></td>`;
     tbodyCamiones.appendChild(tr);
     camionSel.innerHTML += `<option value="${c.nombre}">${c.nombre}</option>`;
   });
 }
 
 // --------------------------------------------------------
-// FUNCIONES DE UBICACIONES/LOTES
+// FUNCIONES DE UBICACIONES / LOTES
 // --------------------------------------------------------
 btnAddUbicacion.addEventListener('click', async () => {
   if (!newUbicacion.value) return;
   await addItem('ubicaciones', { nombre: newUbicacion.value });
   newUbicacion.value = '';
-  await cargarUbicacionesLotes();
-  await cargarSelects();
+  cargarUbicacionesLotes();
+  cargarSelects();
 });
 
 btnAddLote.addEventListener('click', async () => {
   if (!newLote.value) return;
   await addItem('lotes', { nombre: newLote.value });
   newLote.value = '';
-  await cargarUbicacionesLotes();
-  await cargarSelects();
+  cargarUbicacionesLotes();
+  cargarSelects();
 });
 
 async function cargarUbicacionesLotes() {
@@ -220,7 +224,7 @@ async function cargarSelects() {
 // --------------------------------------------------------
 // SINCRONIZACIÓN CON GOOGLE SHEETS
 // --------------------------------------------------------
-const ENDPOINT = "TU_URL_DE_APPS_SCRIPT_AQUI"; // reemplazar con tu URL
+const ENDPOINT = "TU_URL_DE_APPS_SCRIPT_AQUI"; // reemplazar con tu URL real
 
 btnSync.addEventListener('click', async () => {
   const viajes = await getAllItems('viajes');
@@ -278,7 +282,6 @@ btnPDF.addEventListener('click', async () => {
   });
 
   doc.save('viajes.pdf');
-
   syncStatus.textContent = 'PDF generado ✅';
   setTimeout(() => { syncStatus.textContent = ''; }, 3000);
   btnPDF.disabled = false;
