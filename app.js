@@ -224,7 +224,7 @@ async function cargarSelects() {
 // --------------------------------------------------------
 // SINCRONIZACIÓN CON GOOGLE SHEETS
 // --------------------------------------------------------
-const ENDPOINT = "TU_URL_DE_APPS_SCRIPT_AQUI"; // reemplazar con tu URL real
+const ENDPOINT = "https://script.google.com/macros/s/AKfycbwcMuKK7aRG2-rXBOYLLs8FdwDCSr6elmztrpsJgobod53NjdTG9VmsxjFe7E5hHg/exec"; // reemplazar con tu URL real
 
 btnSync.addEventListener('click', async () => {
   const viajes = await getAllItems('viajes');
@@ -287,3 +287,4 @@ btnPDF.addEventListener('click', async () => {
   btnPDF.disabled = false;
   btnSync.disabled = false;
 });
+
