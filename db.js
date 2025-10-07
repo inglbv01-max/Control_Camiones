@@ -8,11 +8,11 @@ function initDB() {
 
     request.onupgradeneeded = (e) => {
       db = e.target.result;
-      if(!db.objectStoreNames.contains('viajes')) db.createObjectStore('viajes', { keyPath: 'id', autoIncrement: true });
-      if(!db.objectStoreNames.contains('camiones')) db.createObjectStore('camiones', { keyPath: 'id', autoIncrement: true });
-      if(!db.objectStoreNames.contains('ubicaciones')) db.createObjectStore('ubicaciones', { keyPath: 'id', autoIncrement: true });
-      if(!db.objectStoreNames.contains('lotes')) db.createObjectStore('lotes', { keyPath: 'id', autoIncrement: true });
-      if(!db.objectStoreNames.contains('usuarios')) db.createObjectStore('usuarios', { keyPath: 'id', autoIncrement: true });
+      if (!db.objectStoreNames.contains('viajes')) db.createObjectStore('viajes', { keyPath: 'id', autoIncrement: true });
+      if (!db.objectStoreNames.contains('camiones')) db.createObjectStore('camiones', { keyPath: 'id', autoIncrement: true });
+      if (!db.objectStoreNames.contains('ubicaciones')) db.createObjectStore('ubicaciones', { keyPath: 'id', autoIncrement: true });
+      if (!db.objectStoreNames.contains('lotes')) db.createObjectStore('lotes', { keyPath: 'id', autoIncrement: true });
+      if (!db.objectStoreNames.contains('usuarios')) db.createObjectStore('usuarios', { keyPath: 'id', autoIncrement: true });
     };
 
     request.onsuccess = (e) => { db = e.target.result; resolve(); };
@@ -20,7 +20,7 @@ function initDB() {
   });
 }
 
-// CRUD Genérico
+// CRUD genérico
 function addItem(storeName, item) {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(storeName, 'readwrite');
@@ -60,3 +60,6 @@ function deleteItem(storeName, id) {
     req.onerror = () => reject(req.error);
   });
 }
+
+// Inicializar DB al cargar
+initDB().then(() => console.log("IndexedDB inicializada"));
