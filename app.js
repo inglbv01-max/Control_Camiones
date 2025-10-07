@@ -34,7 +34,7 @@ const tbodyCamiones = document.getElementById('tbodyCamiones');
 const listaUbicaciones = document.getElementById('listaUbicaciones');
 const listaLotes = document.getElementById('listaLotes');
 
-// Inputs para agregar
+// Inputs
 const newCamion = document.getElementById('newCamion');
 const newPlaca = document.getElementById('newPlaca');
 const newUbicacion = document.getElementById('newUbicacion');
@@ -79,6 +79,10 @@ btnLogin.addEventListener('click', async () => {
       document.getElementById('login-status').textContent = 'Usuario o contraseña incorrectos';
     }
   };
+
+  req.onerror = () => {
+    document.getElementById('login-status').textContent = 'Error accediendo a la base de datos';
+  };
 });
 
 // --------------------------------------------------------
@@ -111,7 +115,7 @@ btnGuardar.addEventListener('click', async () => {
     sync: false
   };
   await addItem('viajes', viaje);
-  cargarViajes();
+  await cargarViajes();
   limpiarFormulario();
 });
 
@@ -145,7 +149,7 @@ async function cargarViajes() {
       <td>${v.llegada}</td>
       <td>${v.obs}</td>
       <td>
-        <button class="danger" onclick="deleteItem('viajes', ${v.id}).then(cargarViajes)">Eliminar</button>
+        <button class="danger" onclick="deleteItem('viajes', ${v.id}).then(() => cargarViajes())">Eliminar</button>
       </td>`;
     tbodyViajes.appendChild(tr);
   });
@@ -159,8 +163,8 @@ btnAddCamion.addEventListener('click', async () => {
   await addItem('camiones', { nombre: newCamion.value, placa: newPlaca.value });
   newCamion.value = '';
   newPlaca.value = '';
-  cargarCamiones();
-  cargarSelects();
+  await cargarCamiones();
+  await cargarSelects();
 });
 
 async function cargarCamiones() {
@@ -170,7 +174,7 @@ async function cargarCamiones() {
   camiones.forEach(c => {
     const tr = document.createElement('tr');
     tr.innerHTML = `<td>${c.nombre}</td><td>${c.placa}</td><td>
-      <button class="danger" onclick="deleteItem('camiones', ${c.id}).then(() => { cargarCamiones(); cargarSelects(); })">Eliminar</button>
+      <button class="danger" onclick="deleteItem('camiones', ${c.id}).then(async () => { await cargarCamiones(); await cargarSelects(); })">Eliminar</button>
     </td>`;
     tbodyCamiones.appendChild(tr);
     camionSel.innerHTML += `<option value="${c.nombre}">${c.nombre}</option>`;
@@ -184,16 +188,16 @@ btnAddUbicacion.addEventListener('click', async () => {
   if (!newUbicacion.value) return;
   await addItem('ubicaciones', { nombre: newUbicacion.value });
   newUbicacion.value = '';
-  cargarUbicacionesLotes();
-  cargarSelects();
+  await cargarUbicacionesLotes();
+  await cargarSelects();
 });
 
 btnAddLote.addEventListener('click', async () => {
   if (!newLote.value) return;
   await addItem('lotes', { nombre: newLote.value });
   newLote.value = '';
-  cargarUbicacionesLotes();
-  cargarSelects();
+  await cargarUbicacionesLotes();
+  await cargarSelects();
 });
 
 async function cargarUbicacionesLotes() {
@@ -206,13 +210,13 @@ async function cargarUbicacionesLotes() {
   loteSel.innerHTML = '<option value="">Seleccione</option>';
 
   ubicaciones.forEach(u => {
-    listaUbicaciones.innerHTML += `<li>${u.nombre} <button class="danger" onclick="deleteItem('ubicaciones', ${u.id}).then(cargarUbicacionesLotes)">Eliminar</button></li>`;
+    listaUbicaciones.innerHTML += `<li>${u.nombre} <button class="danger" onclick="deleteItem('ubicaciones', ${u.id}).then(() => cargarUbicacionesLotes())">Eliminar</button></li>`;
     origenSel.innerHTML += `<option value="${u.nombre}">${u.nombre}</option>`;
     destinoSel.innerHTML += `<option value="${u.nombre}">${u.nombre}</option>`;
   });
 
   lotes.forEach(l => {
-    listaLotes.innerHTML += `<li>${l.nombre} <button class="danger" onclick="deleteItem('lotes', ${l.id}).then(cargarUbicacionesLotes)">Eliminar</button></li>`;
+    listaLotes.innerHTML += `<li>${l.nombre} <button class="danger" onclick="deleteItem('lotes', ${l.id}).then(() => cargarUbicacionesLotes())">Eliminar</button></li>`;
     loteSel.innerHTML += `<option value="${l.nombre}">${l.nombre}</option>`;
   });
 }
@@ -258,7 +262,7 @@ btnSync.addEventListener('click', async () => {
   }
 
   syncStatus.textContent = 'Sincronización completada ✅';
-  cargarViajes();
+  await cargarViajes();
   setTimeout(() => { syncStatus.textContent = ''; }, 4000);
   btnSync.disabled = false;
   btnPDF.disabled = false;
