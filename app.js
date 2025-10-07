@@ -3,18 +3,26 @@
 // --------------------------------------------------------
 async function initApp() {
   await initDB();
+  await crearSuperUsuario();
+  console.log('App inicializada');
+}
 
-  // Crear superusuario si no existe
-  const tx = db.transaction('usuarios', 'readwrite');
+async function crearSuperUsuario() {
+  const tx = db.transaction('usuarios', 'readonly');
   const store = tx.objectStore('usuarios');
-  const req = store.get('admin');
-  req.onsuccess = () => {
+  const index = store.index('username');
+  const req = index.get('admin');
+
+  req.onsuccess = async () => {
     if (!req.result) {
-      store.add({ username: 'admin', password: '1234', tipo: 'super' });
-      console.log("Superusuario creado: admin / 1234");
+      await addItem('usuarios', { username: 'admin', password: '1234', tipo: 'super' });
+      console.log('Superusuario creado: admin / 1234');
+    } else {
+      console.log('Superusuario ya existe');
     }
   };
 }
+
 initApp();
 
 // --------------------------------------------------------
@@ -61,7 +69,8 @@ btnLogin.addEventListener('click', async () => {
 
   const tx = db.transaction('usuarios', 'readonly');
   const store = tx.objectStore('usuarios');
-  const req = store.get(username);
+  const index = store.index('username');
+  const req = index.get(username);
 
   req.onsuccess = () => {
     const user = req.result;
@@ -143,7 +152,9 @@ async function cargarViajes() {
       <td>${v.salida}</td>
       <td>${v.llegada}</td>
       <td>${v.obs}</td>
-      <td><button class="danger" onclick="deleteItem('viajes', ${v.id}).then(cargarViajes)">Eliminar</button></td>`;
+      <td>
+        <button class="danger" onclick="deleteItem('viajes', ${v.id}).then(cargarViajes)">Eliminar</button>
+      </td>`;
     tbodyViajes.appendChild(tr);
   });
 }
@@ -166,15 +177,16 @@ async function cargarCamiones() {
   camionSel.innerHTML = '<option value="">Seleccione</option>';
   camiones.forEach(c => {
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${c.nombre}</td><td>${c.placa}</td>
-      <td><button class="danger" onclick="deleteItem('camiones', ${c.id}).then(() => { cargarCamiones(); cargarSelects(); })">Eliminar</button></td>`;
+    tr.innerHTML = `<td>${c.nombre}</td><td>${c.placa}</td><td>
+      <button class="danger" onclick="deleteItem('camiones', ${c.id}).then(() => { cargarCamiones(); cargarSelects(); })">Eliminar</button>
+    </td>`;
     tbodyCamiones.appendChild(tr);
     camionSel.innerHTML += `<option value="${c.nombre}">${c.nombre}</option>`;
   });
 }
 
 // --------------------------------------------------------
-// FUNCIONES DE UBICACIONES / LOTES
+// FUNCIONES DE UBICACIONES/LOTES
 // --------------------------------------------------------
 btnAddUbicacion.addEventListener('click', async () => {
   if (!newUbicacion.value) return;
@@ -224,7 +236,7 @@ async function cargarSelects() {
 // --------------------------------------------------------
 // SINCRONIZACIÓN CON GOOGLE SHEETS
 // --------------------------------------------------------
-const ENDPOINT = "https://script.google.com/macros/s/AKfycbwcMuKK7aRG2-rXBOYLLs8FdwDCSr6elmztrpsJgobod53NjdTG9VmsxjFe7E5hHg/exec"; // reemplazar con tu URL real
+const ENDPOINT = "https://script.google.com/macros/s/AKfycbwcMuKK7aRG2-rXBOYLLs8FdwDCSr6elmztrpsJgobod53NjdTG9VmsxjFe7E5hHg/exec"; // Reemplazar con tu URL real
 
 btnSync.addEventListener('click', async () => {
   const viajes = await getAllItems('viajes');
@@ -282,9 +294,9 @@ btnPDF.addEventListener('click', async () => {
   });
 
   doc.save('viajes.pdf');
+
   syncStatus.textContent = 'PDF generado ✅';
   setTimeout(() => { syncStatus.textContent = ''; }, 3000);
   btnPDF.disabled = false;
   btnSync.disabled = false;
 });
-
