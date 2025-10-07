@@ -9,38 +9,106 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
+  <!-- LOGIN -->
   <div id="login-screen" class="wrap">
-    <h1>Login</h1>
+    <h1>🚛 Control de Camiones</h1>
+    <h3>Iniciar sesión</h3>
     <label>Usuario</label>
-    <input type="text" id="username">
+    <input type="text" id="username"/>
     <label>Contraseña</label>
-    <input type="password" id="password">
-    <button id="btnLogin" class="sync">Iniciar Sesión</button>
-    <p id="login-status" class="error"></p>
+    <input type="password" id="password"/>
+    <button id="btnLogin" type="button" class="sync">Entrar</button>
+    <span id="login-status" class="error"></span>
   </div>
 
-  <div id="app-screen" class="wrap" style="display:none;">
-    <div class="right">
-      <button id="btnLogout" class="danger">Cerrar sesión</button>
+  <!-- APP -->
+  <div id="app-screen" class="wrap" style="display:none">
+    <div class="top-bar">
+      <button id="btnLogout" type="button" class="danger">Cerrar sesión</button>
       <span id="sync-status"></span>
     </div>
 
-    <h1>Control de Camiones</h1>
+    <!-- NAV TABS -->
     <div class="tabs">
-      <button class="tabbtn active">Viajes</button>
-      <button class="tabbtn">Camiones</button>
-      <button class="tabbtn">Ubicaciones / Lotes</button>
+      <button type="button" class="tabbtn active" data-tab="viajes">Viajes</button>
+      <button type="button" class="tabbtn" data-tab="camiones">Camiones</button>
+      <button type="button" class="tabbtn" data-tab="ubicaciones">Ubicaciones / Lotes</button>
     </div>
 
-    <!-- Contenido principal -->
-    <div id="contenido">
-      <!-- Aquí se cargan formularios y tablas -->
-    </div>
+    <!-- TAB VIAJES -->
+    <section id="tab-viajes" class="card">
+      <h3>📋 Registrar Viaje</h3>
+      <div class="row">
+        <div><label>Fecha</label><input id="fecha" type="date"/></div>
+        <div><label>Camión</label><select id="camionSel"></select></div>
+        <div><label>Placa</label><input id="placa" readonly/></div>
+        <div><label>Origen</label><select id="origenSel"></select></div>
+        <div><label>Destino</label><select id="destinoSel"></select></div>
+        <div><label>Lote</label><select id="loteSel"></select></div>
+        <div><label>Salida</label><input id="salida" type="time"/></div>
+        <div><label>Llegada</label><input id="llegada" type="time"/></div>
+      </div>
+      <label>Observaciones</label>
+      <textarea id="obs" rows="2" placeholder="Notas…"></textarea>
 
-    <div class="btns">
-      <button id="btnSync" class="sync">Sincronizar</button>
-      <button id="btnPDF" class="pdf">Generar PDF</button>
-    </div>
+      <div class="btns">
+        <button id="btnGuardar" type="button" class="save">Guardar</button>
+        <button id="btnLimpiar" type="button" class="ghost">Limpiar</button>
+        <button id="btnSync" type="button" class="sync">Sincronizar</button>
+        <button id="btnPDF" type="button" class="pdf">PDF</button>
+      </div>
+
+      <div class="card">
+        <h3>Viajes Guardados (offline)</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Fecha</th><th>Camión</th><th>Placa</th><th>Origen</th>
+              <th>Destino</th><th>Lote</th><th>Salida</th><th>Llegada</th><th>Obs</th><th>Acción</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyViajes"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- TAB CAMIONES -->
+    <section id="tab-camiones" class="card" style="display:none">
+      <h3>🚚 Catálogo de Camiones</h3>
+      <div class="row">
+        <div><label>Nombre Camión</label><input id="newCamion"/></div>
+        <div><label>Placa</label><input id="newPlaca"/></div>
+      </div>
+      <div class="btns">
+        <button id="btnAddCamion" type="button" class="save mini">Agregar</button>
+      </div>
+      <div class="card">
+        <table>
+          <thead><tr><th>Camión</th><th>Placa</th><th>Acción</th></tr></thead>
+          <tbody id="tbodyCamiones"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- TAB UBICACIONES/LOTES -->
+    <section id="tab-ubicaciones" class="card" style="display:none">
+      <h3>📌 Catálogo de Ubicaciones / Lotes</h3>
+      <div class="row">
+        <div><label>Ubicación</label><input id="newUbicacion"/></div>
+        <div><label>Lote</label><input id="newLote"/></div>
+      </div>
+      <div class="btns">
+        <button id="btnAddUbicacion" type="button" class="save mini">Agregar Ubicación</button>
+        <button id="btnAddLote" type="button" class="save mini">Agregar Lote</button>
+      </div>
+      <div class="card">
+        <h4>Ubicaciones</h4>
+        <ul id="listaUbicaciones"></ul>
+        <h4>Lotes</h4>
+        <ul id="listaLotes"></ul>
+      </div>
+    </section>
+
   </div>
 
   <script src="db.js"></script>
@@ -51,6 +119,22 @@
         .then(() => console.log('SW registrado'))
         .catch(console.error);
     }
+
+    // Manejo simple de tabs
+    const tabs = document.querySelectorAll('.tabbtn');
+    const sections = {
+      viajes: document.getElementById('tab-viajes'),
+      camiones: document.getElementById('tab-camiones'),
+      ubicaciones: document.getElementById('tab-ubicaciones')
+    };
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        const tabName = tab.dataset.tab;
+        Object.keys(sections).forEach(key => sections[key].style.display = (key === tabName) ? 'block' : 'none');
+      });
+    });
   </script>
 </body>
 </html>
