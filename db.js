@@ -9,26 +9,14 @@ function initDB() {
     request.onupgradeneeded = (e) => {
       db = e.target.result;
 
-      if (!db.objectStoreNames.contains('viajes')) {
-        db.createObjectStore('viajes', { keyPath: 'id', autoIncrement: true });
-      }
-
-      if (!db.objectStoreNames.contains('camiones')) {
-        db.createObjectStore('camiones', { keyPath: 'id', autoIncrement: true });
-      }
-
-      if (!db.objectStoreNames.contains('ubicaciones')) {
-        db.createObjectStore('ubicaciones', { keyPath: 'id', autoIncrement: true });
-      }
-
-      if (!db.objectStoreNames.contains('lotes')) {
-        db.createObjectStore('lotes', { keyPath: 'id', autoIncrement: true });
-      }
-
       if (!db.objectStoreNames.contains('usuarios')) {
         const store = db.createObjectStore('usuarios', { keyPath: 'id', autoIncrement: true });
         store.createIndex('username', 'username', { unique: true });
       }
+      if (!db.objectStoreNames.contains('viajes')) db.createObjectStore('viajes', { keyPath: 'id', autoIncrement: true });
+      if (!db.objectStoreNames.contains('camiones')) db.createObjectStore('camiones', { keyPath: 'id', autoIncrement: true });
+      if (!db.objectStoreNames.contains('ubicaciones')) db.createObjectStore('ubicaciones', { keyPath: 'id', autoIncrement: true });
+      if (!db.objectStoreNames.contains('lotes')) db.createObjectStore('lotes', { keyPath: 'id', autoIncrement: true });
     };
 
     request.onsuccess = (e) => { db = e.target.result; resolve(); };
@@ -36,7 +24,7 @@ function initDB() {
   });
 }
 
-// CRUD Genérico
+// CRUD genérico
 function addItem(storeName, item) {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(storeName, 'readwrite');
@@ -52,6 +40,17 @@ function getAllItems(storeName) {
     const tx = db.transaction(storeName, 'readonly');
     const store = tx.objectStore(storeName);
     const req = store.getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function getItemByIndex(storeName, indexName, value) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, 'readonly');
+    const store = tx.objectStore(storeName);
+    const index = store.index(indexName);
+    const req = index.get(value);
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
@@ -77,5 +76,4 @@ function deleteItem(storeName, id) {
   });
 }
 
-// Inicializar DB al cargar
 initDB().then(() => console.log("IndexedDB inicializada"));
