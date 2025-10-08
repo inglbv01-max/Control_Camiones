@@ -1,302 +1,126 @@
-// --------------------------------------------------------
-// INICIALIZACIÓN DE LA APP
-// --------------------------------------------------------
-async function initApp() {
+// === CONFIGURACIÓN ===
+const ENDPOINT_URL = 'https://script.google.com/macros/s/AKfycbwcMuKK7aRG2-rXBOYLLs8FdwDCSr6elmztrpsJgobod53NjdTG9VmsxjFe7E5hHg/exec'; // 🔁 Reemplazar con tu API real (si la tienes)
+const DB_NAME = 'ControlCamionesDB';
+let currentUser = null;
+
+// === INICIALIZAR DB ===
+async function startApp() {
   await initDB();
-  await crearSuperUsuario();
-  console.log('App inicializada');
-}
 
-async function crearSuperUsuario() {
-  const tx = db.transaction('usuarios', 'readonly');
-  const store = tx.objectStore('usuarios');
-  const index = store.index('username');
-  const req = index.get('admin');
-
-  req.onsuccess = async () => {
-    if (!req.result) {
-      await addItem('usuarios', { username: 'admin', password: '1234', tipo: 'super' });
-      console.log('Superusuario creado: admin / 1234');
-    } else {
-      console.log('Superusuario ya existe');
-    }
-  };
-}
-
-initApp();
-
-// --------------------------------------------------------
-// ELEMENTOS DEL DOM
-// --------------------------------------------------------
-const btnLogin = document.getElementById('btnLogin');
-const btnLogout = document.getElementById('btnLogout');
-const syncStatus = document.getElementById('sync-status');
-const btnSync = document.getElementById('btnSync');
-const btnPDF = document.getElementById('btnPDF');
-
-const camionSel = document.getElementById('camionSel');
-const origenSel = document.getElementById('origenSel');
-const destinoSel = document.getElementById('destinoSel');
-const loteSel = document.getElementById('loteSel');
-const tbodyViajes = document.getElementById('tbodyViajes');
-const tbodyCamiones = document.getElementById('tbodyCamiones');
-const listaUbicaciones = document.getElementById('listaUbicaciones');
-const listaLotes = document.getElementById('listaLotes');
-
-const newCamion = document.getElementById('newCamion');
-const newPlaca = document.getElementById('newPlaca');
-const newUbicacion = document.getElementById('newUbicacion');
-const newLote = document.getElementById('newLote');
-
-const fechaInput = document.getElementById('fecha');
-const placaInput = document.getElementById('placa');
-const salidaInput = document.getElementById('salida');
-const llegadaInput = document.getElementById('llegada');
-const obsInput = document.getElementById('obs');
-
-const btnGuardar = document.getElementById('btnGuardar');
-const btnLimpiar = document.getElementById('btnLimpiar');
-const btnAddCamion = document.getElementById('btnAddCamion');
-const btnAddUbicacion = document.getElementById('btnAddUbicacion');
-const btnAddLote = document.getElementById('btnAddLote');
-
-// --------------------------------------------------------
-// LOGIN
-// --------------------------------------------------------
-btnLogin.addEventListener('click', async () => {
-  const username = document.getElementById('username').value;
-  const password = document.getElementById('password').value;
-
-  const tx = db.transaction('usuarios', 'readonly');
-  const store = tx.objectStore('usuarios');
-  const index = store.index('username');
-  const req = index.get(username);
-
-  req.onsuccess = () => {
-    const user = req.result;
-    if (user && user.password === password) {
-      localStorage.setItem('usuarioActivo', username);
-      document.getElementById('login-screen').style.display = 'none';
-      document.getElementById('app-screen').style.display = 'block';
-      syncStatus.textContent = '';
-      cargarSelects();
-      cargarViajes();
-      cargarCamiones();
-      cargarUbicacionesLotes();
-    } else {
-      document.getElementById('login-status').textContent = 'Usuario o contraseña incorrectos';
-    }
-  };
-});
-
-// --------------------------------------------------------
-// LOGOUT
-// --------------------------------------------------------
-btnLogout.addEventListener('click', () => {
-  if (!navigator.onLine) {
-    alert('No se puede cerrar sesión sin conexión a internet. Sincronice primero.');
-    return;
+  // Verificar si hay usuario registrado (local)
+  const users = await getAllItems('usuarios');
+  if (users.length === 0) {
+    await addItem('usuarios', { username: 'admin', password: '1234', role: 'Administrador' });
+    console.log("Usuario admin creado");
   }
-  localStorage.removeItem('usuarioActivo');
-  document.getElementById('login-screen').style.display = 'block';
-  document.getElementById('app-screen').style.display = 'none';
-});
 
-// --------------------------------------------------------
-// FUNCIONES DE VIAJES
-// --------------------------------------------------------
-btnGuardar.addEventListener('click', async () => {
-  const viaje = {
-    fecha: fechaInput.value,
-    camion: camionSel.value,
-    placa: placaInput.value,
-    origen: origenSel.value,
-    destino: destinoSel.value,
-    lote: loteSel.value,
-    salida: salidaInput.value,
-    llegada: llegadaInput.value,
-    obs: obsInput.value,
-    sync: false
-  };
-  await addItem('viajes', viaje);
-  cargarViajes();
-  limpiarFormulario();
-});
-
-btnLimpiar.addEventListener('click', limpiarFormulario);
-
-function limpiarFormulario() {
-  fechaInput.value = '';
-  camionSel.selectedIndex = 0;
-  placaInput.value = '';
-  origenSel.selectedIndex = 0;
-  destinoSel.selectedIndex = 0;
-  loteSel.selectedIndex = 0;
-  salidaInput.value = '';
-  llegadaInput.value = '';
-  obsInput.value = '';
+  // Mostrar login
+  document.getElementById('login-section').style.display = 'block';
 }
 
-async function cargarViajes() {
+// === LOGIN ===
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value.trim();
+
+  const user = (await getAllItems('usuarios')).find(u => u.username === username && u.password === password);
+
+  if (user) {
+    currentUser = user;
+    document.getElementById('login-section').style.display = 'none';
+    document.getElementById('app-section').style.display = 'block';
+    document.getElementById('estado').textContent = `Conectado como ${user.username}`;
+  } else {
+    alert('Usuario o contraseña incorrectos');
+  }
+});
+
+// === CERRAR SESIÓN ===
+document.getElementById('logout-btn').addEventListener('click', () => {
+  currentUser = null;
+  document.getElementById('app-section').style.display = 'none';
+  document.getElementById('login-section').style.display = 'block';
+});
+
+// === REGISTRAR VIAJE ===
+document.getElementById('form-viaje').addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const nuevoViaje = {
+    fecha: document.getElementById('fecha').value,
+    camion: document.getElementById('camion').value,
+    ubicacion: document.getElementById('ubicacion').value,
+    lote: document.getElementById('lote').value,
+    kilos: document.getElementById('kilos').value,
+    sync: false,
+    creadoPor: currentUser?.username || 'desconocido'
+  };
+
+  await addItem('viajes', nuevoViaje);
+  alert('Viaje registrado localmente ✅');
+  e.target.reset();
+  listarViajes();
+});
+
+// === LISTAR VIAJES ===
+async function listarViajes() {
   const viajes = await getAllItems('viajes');
-  tbodyViajes.innerHTML = '';
+  const tbody = document.getElementById('tabla-viajes');
+  tbody.innerHTML = '';
+
   viajes.forEach(v => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${v.fecha}</td>
       <td>${v.camion}</td>
-      <td>${v.placa}</td>
-      <td>${v.origen}</td>
-      <td>${v.destino}</td>
+      <td>${v.ubicacion}</td>
       <td>${v.lote}</td>
-      <td>${v.salida}</td>
-      <td>${v.llegada}</td>
-      <td>${v.obs}</td>
-      <td>
-        <button class="danger" onclick="deleteItem('viajes', ${v.id}).then(cargarViajes)">Eliminar</button>
-      </td>`;
-    tbodyViajes.appendChild(tr);
+      <td>${v.kilos}</td>
+      <td>${v.sync ? '✅' : '🕓'}</td>
+    `;
+    tbody.appendChild(tr);
   });
 }
 
-// --------------------------------------------------------
-// FUNCIONES DE CAMIONES
-// --------------------------------------------------------
-btnAddCamion.addEventListener('click', async () => {
-  if (!newCamion.value || !newPlaca.value) return;
-  await addItem('camiones', { nombre: newCamion.value, placa: newPlaca.value });
-  newCamion.value = '';
-  newPlaca.value = '';
-  cargarCamiones();
-  cargarSelects();
-});
+// === SINCRONIZAR CON SERVIDOR ===
+document.getElementById('sync-btn').addEventListener('click', async () => {
+  const syncStatus = document.getElementById('sync-status');
+  syncStatus.textContent = '🔄 Sincronizando...';
 
-async function cargarCamiones() {
-  const camiones = await getAllItems('camiones');
-  tbodyCamiones.innerHTML = '';
-  camionSel.innerHTML = '<option value="">Seleccione</option>';
-  camiones.forEach(c => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${c.nombre}</td><td>${c.placa}</td><td>
-      <button class="danger" onclick="deleteItem('camiones', ${c.id}).then(() => { cargarCamiones(); cargarSelects(); })">Eliminar</button>
-    </td>`;
-    tbodyCamiones.appendChild(tr);
-    camionSel.innerHTML += `<option value="${c.nombre}">${c.nombre}</option>`;
-  });
-}
-
-// --------------------------------------------------------
-// FUNCIONES DE UBICACIONES/LOTES
-// --------------------------------------------------------
-btnAddUbicacion.addEventListener('click', async () => {
-  if (!newUbicacion.value) return;
-  await addItem('ubicaciones', { nombre: newUbicacion.value });
-  newUbicacion.value = '';
-  cargarUbicacionesLotes();
-  cargarSelects();
-});
-
-btnAddLote.addEventListener('click', async () => {
-  if (!newLote.value) return;
-  await addItem('lotes', { nombre: newLote.value });
-  newLote.value = '';
-  cargarUbicacionesLotes();
-  cargarSelects();
-});
-
-async function cargarUbicacionesLotes() {
-  const ubicaciones = await getAllItems('ubicaciones');
-  const lotes = await getAllItems('lotes');
-  listaUbicaciones.innerHTML = '';
-  listaLotes.innerHTML = '';
-  origenSel.innerHTML = '<option value="">Seleccione</option>';
-  destinoSel.innerHTML = '<option value="">Seleccione</option>';
-  loteSel.innerHTML = '<option value="">Seleccione</option>';
-
-  ubicaciones.forEach(u => {
-    listaUbicaciones.innerHTML += `<li>${u.nombre} <button class="danger" onclick="deleteItem('ubicaciones', ${u.id}).then(cargarUbicacionesLotes)">Eliminar</button></li>`;
-    origenSel.innerHTML += `<option value="${u.nombre}">${u.nombre}</option>`;
-    destinoSel.innerHTML += `<option value="${u.nombre}">${u.nombre}</option>`;
-  });
-
-  lotes.forEach(l => {
-    listaLotes.innerHTML += `<li>${l.nombre} <button class="danger" onclick="deleteItem('lotes', ${l.id}).then(cargarUbicacionesLotes)">Eliminar</button></li>`;
-    loteSel.innerHTML += `<option value="${l.nombre}">${l.nombre}</option>`;
-  });
-}
-
-// --------------------------------------------------------
-// ACTUALIZAR SELECTS
-// --------------------------------------------------------
-async function cargarSelects() {
-  await cargarCamiones();
-  await cargarUbicacionesLotes();
-}
-
-// --------------------------------------------------------
-// SINCRONIZACIÓN CON GOOGLE SHEETS
-// --------------------------------------------------------
-const ENDPOINT = "https://script.google.com/macros/s/AKfycbwcMuKK7aRG2-rXBOYLLs8FdwDCSr6elmztrpsJgobod53NjdTG9VmsxjFe7E5hHg/exec"; // Reemplazar con tu URL real
-
-btnSync.addEventListener('click', async () => {
   const viajes = await getAllItems('viajes');
   const pendientes = viajes.filter(v => !v.sync);
+
   if (pendientes.length === 0) {
-    syncStatus.textContent = 'Todos los viajes ya están sincronizados.';
+    syncStatus.textContent = '✅ Todo está sincronizado.';
     return;
   }
 
-  btnSync.disabled = true;
-  btnPDF.disabled = true;
-  syncStatus.textContent = 'Sincronizando...';
-  const usuario = localStorage.getItem('usuarioActivo');
+  try {
+    const response = await fetch(ENDPOINT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ viajes: pendientes })
+    });
 
-  for (const v of pendientes) {
-    try {
-      await fetch(`${ENDPOINT}?usuario=${usuario}`, {
-        method: 'POST',
-        body: JSON.stringify(v),
-        headers: { 'Content-Type': 'application/json' }
-      });
+    if (!response.ok) throw new Error('Error al conectar con el servidor');
+
+    // Marcar como sincronizados
+    for (let v of pendientes) {
       v.sync = true;
       await updateItem('viajes', v);
-    } catch (err) {
-      console.error('Error sincronizando viaje:', err);
     }
-  }
 
-  syncStatus.textContent = 'Sincronización completada ✅';
-  cargarViajes();
-  setTimeout(() => { syncStatus.textContent = ''; }, 4000);
-  btnSync.disabled = false;
-  btnPDF.disabled = false;
+    syncStatus.textContent = '✅ Datos sincronizados correctamente';
+    listarViajes();
+  } catch (err) {
+    console.error(err);
+    syncStatus.textContent = '⚠️ Error al sincronizar (modo offline activo)';
+  }
 });
 
-// --------------------------------------------------------
-// GENERAR PDF
-// --------------------------------------------------------
-btnPDF.addEventListener('click', async () => {
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-
-  btnPDF.disabled = true;
-  btnSync.disabled = true;
-  syncStatus.textContent = 'Generando PDF...';
-
-  const viajes = await getAllItems('viajes');
-  doc.setFontSize(14);
-  doc.text('Viajes Guardados', 14, 20);
-  let y = 30;
-  viajes.forEach(v => {
-    doc.text(`Fecha: ${v.fecha}, Camión: ${v.placa}, Origen: ${v.origen}, Destino: ${v.destino}, Lote: ${v.lote}`, 14, y);
-    y += 10;
-    if (y > 280) { doc.addPage(); y = 20; }
-  });
-
-  doc.save('viajes.pdf');
-
-  syncStatus.textContent = 'PDF generado ✅';
-  setTimeout(() => { syncStatus.textContent = ''; }, 3000);
-  btnPDF.disabled = false;
-  btnSync.disabled = false;
+// === CARGAR DATOS AL INICIAR ===
+document.addEventListener('DOMContentLoaded', async () => {
+  await startApp();
+  listarViajes();
 });
